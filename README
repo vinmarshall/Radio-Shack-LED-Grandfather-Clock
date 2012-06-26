@@ -1,0 +1,15 @@
+These files are the plans for the "Radio Shack LED Grandfather Clock" project
+that was featured in the July 2012 issue of Popular Science.  Look at
+the instructions file for more information.
+
+./grandfather_clock_code - Arduino code
+
+./mechanical - CAD files and laser cutting templates.
+
+./parts - Bill of Materials and parts sourcing information.
+
+./PCB - Circuit schematic and board layout in the Express PCB format.
+
+./schematic - The schematic for the circuit.
+
+instructions.pdf - Instructions for building this project.
