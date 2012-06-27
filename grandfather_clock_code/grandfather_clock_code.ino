@@ -3,7 +3,8 @@
  * A Grandfather Clock that chimes the quarter, half, and full hours
  * by way of RGB LEDs.  There is no external time display other than 
  * these periodic chimes - it communicates the passing of time, not 
- * the time itself.
+ * the time itself.  One chime for the quarter hour, two for the half
+ * hour, and the number of the hour at the top of the hour.
  *
  * This code is for the Radio Shack LED Grandfather Clock project in the
  * July 2012 issue of PopSci.  
@@ -48,6 +49,15 @@
 #define FADE_TIME_MS 50
 #define CHIME_PAUSE_MS 1000
 
+// Comment out if you don't want output to the serial console
+#define DEBUG 1
+
+// IMPORTANT:  Uncomment this for the first time you program the clock. 
+// Then comment it out and reprogram the Arduino.  Leave it commented out 
+// thereafer.  This enables setting the RTC to the time and date when this
+// code was compiled - you only want it to do that the first time it starts.
+//#define FIRST_RUN
+
 struct RGB { 
   byte red;
   byte green;
@@ -62,30 +72,45 @@ struct RGB {
  */
 RGB am_color = {12, 2, 7};
 RGB pm_color = {2, 12, 7};
+RGB error = {1, 0, 0};      // red
+RGB ok = {0, 1, 0};         // green
 
 void setup() {     
-  // Start Serial comm
+#ifdef DEBUG
   Serial.begin(9600);  
+#endif
   
-  // Set the clock based on this code's compile time.  Make
-  // sure the compiling computer's clock is set correctly.
-  setTimeByCompileTime();
-  
-  // DEBUGGING
-  // Just before the 10 AM hour chime
-  //setTime(9, 59, 55, 1, 1, 2012); 
-  // Just before the 4 PM hour chime
-  //setTime(15, 59, 55, 1, 1, 2012);
-  // Just before a quarter hour chime
-  //setTime(0, 14, 55, 1, 1, 2012);
-  // Just before a half hour chime
-  //setTime(0, 29, 55, 1, 1, 2012);
-  
-  // Ensure we have a time set.
-  if(timeStatus()!= timeSet)
+  // Ensure we can talk to the RTC and it has a time.
+  setSyncProvider(RTC.get);
+  if(timeStatus()!= timeSet) {
+#ifdef DEBUG
     Serial.println("Unable to sync with the RTC");
-  else
+#endif
+    chime(error, 10);
+  } else {
+#ifdef DEBUG
     Serial.println("RTC has set the system time");
+#endif
+    chime(ok, 1);
+  }
+  
+#ifdef FIRST_RUN
+  // Sets the clock based on this code's compile time.  Make
+  // sure the compiling computer's clock is set correctly.  
+  setTimeByCompileTime();
+#endif
+  
+  // TESTING
+  // Just before the 10 AM hour chime
+  //setTime(9, 59, 45, 1, 1, 2012); 
+  // Just before the 4 PM hour chime
+  //setTime(15, 59, 45, 1, 1, 2012);
+  // Just before a quarter hour chime
+  //setTime(0, 14, 45, 1, 1, 2012);
+  // Just before a half hour chime
+  //setTime(0, 29, 45, 1, 1, 2012);
+  // Just before an AM to PM transition
+  //setTime(11, 59, 45, 1, 1, 2012);
   
   // initialize the digital pin as an output.
   pinMode(RED_PIN, OUTPUT);     
@@ -95,6 +120,7 @@ void setup() {
 
 RGB current_color;
 int last_minute;
+char buf[255];
 
 void loop() {
   
@@ -108,6 +134,15 @@ void loop() {
   // Chime on quarter, half, and full hours
   // Check every time through the loop for a new minute
   if (minute(time) != last_minute) {
+ 
+#ifdef DEBUG
+    // Print time to serial console
+    sprintf(buf, "%0.2d:%0.2d:%0.2d %d %s %d", \ 
+            hour(time), minute(time), second(time), \
+            day(time), monthShortStr(month(time)), year(time));
+    Serial.println(buf);
+#endif
+    
     if (minute(time) == 0) { chime(current_color, hourFormat12(time)); }
     else if (minute(time) == 30) { chime(current_color, 2); }
     else if (minute(time) % 15 == 0) { chime(current_color, 1); }
@@ -122,7 +157,7 @@ void loop() {
  * chime
  * Fades an RGB LED up and down keeping the color mix ratio
  * consistent.  
- * color struct: red, green, blue 0-255 starting color values
+ * color: RGB struct with red, green, and blue 0-255 starting color values
  * num: number of times to cycle the fade up and down
  *
  * Expects FADE_STEP to be defined
@@ -202,7 +237,7 @@ int limitTo(int val, int min, int max) {
 /*
  * setTimeByCompileTime
  * Sets the connected RTC based on the time and date at which this program
- * was compiled which is a reasonably accurate way to grab the time.  
+ * was compiled, which is a reasonably accurate way to grab the time.  
  * That clever trick is courtesy of Adafruit:
  * http://www.ladyada.net/learn/breakoutplus/ds1307rtc.html
  */
@@ -226,5 +261,7 @@ void setTimeByCompileTime() {
   
   // And set the clock to the parsed compile time and date
   setTime(hh, mm, ss, DD, MM, YYYY);
+  time_t set = now();
+  RTC.set(set);
 }
 
